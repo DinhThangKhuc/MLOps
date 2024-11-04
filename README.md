@@ -1,6 +1,6 @@
 Daten labeln nach folgendem Schema:
 
-YYYYMMDD_EID_Name_DailyCount
+YYYYMMDD_EID_Position_Name_DailyCount
 
 EID = Exercise ID:
 - 0: Gehen
@@ -8,6 +8,10 @@ EID = Exercise ID:
 - 2: Sit-Ups
 - 3: Bizeps Curl
 - 4: Liegestütze
+
+Position:
+0: Hosentasche
+1: Handgelenk
 
 Name:
 - Thang
