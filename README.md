@@ -1,17 +1,17 @@
-Daten labeln nach folgendem Schema:
+Label data using the following scheme:
 
 YYYYMMDD_EID_Position_Name_DailyCount
 
 EID = Exercise ID:
-- 0: Gehen
-- 1: Kniebeuge
+- 0: Walk
+- 1: Squat
 - 2: Sit-Ups
 - 3: Bizeps Curl
-- 4: Liegestütze
+- 4: Push-Up
 
 Position:
-0: Hosentasche
-1: Handgelenk
+- 0: Pocket
+- 1: Wrist
 
 Name:
 - Thang
@@ -24,6 +24,6 @@ DailyCount:
 - ...
 
 
-Beispiel:
-"Zweite Aufnahme von Kniebeugen von Tristan am 03.November 2024"
-20241103_1_Tristan_B
+example:
+- Tristan records squats on 3rd November 2024 for the second time while the sensor is in his pocket
+--> 20241103_1_0_Tristan_B
