@@ -29,4 +29,4 @@ example:
 --> 20241103_1_0_Tristan_B
 
 ## Device's Orientation
-![Hand's orientation](assets/IMG_0712.HEIC)
+![Hand's orientation](assets/IMG_0712.PNG)
