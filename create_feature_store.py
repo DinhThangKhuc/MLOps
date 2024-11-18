@@ -4,9 +4,9 @@ from azure.ai.ml.entities import FeatureStore
 
 ml_client = MLClient(
     DefaultAzureCredential(), 
-    subscription_id="e3bfc907-4e07-467d-a81a-2de709c8c86f",
-    resource_group_name="ws24_mlops_group02",
-    workspace_name="mlopsgroup02"
+    subscription_id=AZURE_SUBSCRIPTION_ID,
+    resource_group_name=AZURE_RESSOURCE_GROUP",
+    workspace_name=AZURE_WORKSPACE
 )
 
 featurestore = FeatureStore(
