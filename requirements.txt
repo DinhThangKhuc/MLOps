@@ -1,3 +1,6 @@
 pandas
 jupyter
 matplotlib
+azure-ai-ml
+azure-storage-blob
+python-dotenv
