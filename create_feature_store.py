@@ -5,7 +5,7 @@ from azure.ai.ml.entities import FeatureStore
 ml_client = MLClient(
     DefaultAzureCredential(), 
     subscription_id=AZURE_SUBSCRIPTION_ID,
-    resource_group_name=AZURE_RESSOURCE_GROUP",
+    resource_group_name=AZURE_RESSOURCE_GROUP,
     workspace_name=AZURE_WORKSPACE
 )
 
