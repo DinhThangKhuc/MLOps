@@ -2,7 +2,7 @@
 # 
 # This script contains functions to versionize data, upload files to an Azure Blob Storage container automatically 
 
-
+from azure.ai.ml import MLClient
 from azure.ai.ml.entities import Data
 from azure.ai.ml.constants import AssetTypes
 from azure.identity import DefaultAzureCredential
@@ -31,12 +31,10 @@ if not workspace:
 if not storage_account:
     raise ValueError("No Azure storage account found.")
 
-def versionize_data(data_path):
+def versionize_data(ds_name: str, author: str):
     ml_client = MLClient(
         DefaultAzureCredential(), subscription_id, resource_group, workspace
     )
-
-    VERSION = "1"
 
     # Set the path, supported paths include:
     # local: './<path>/<file>' (this will be automatically uploaded to cloud storage)
@@ -45,16 +43,25 @@ def versionize_data(data_path):
     # Datastore: 'azureml://datastores/<data_store_name>/paths/<path>/<file>'
     path = "https://mlopsgroup023113987413.blob.core.windows.net/movements"
 
-    # Define the Data asset object
+    #try:
+        #existing_data = ml_client.data.get(name=ds_name)
+        #current_version = existing_data.version
+        # Increment the version number
+        #VERSION = str(int(current_version) + 1)
+    #except Exception as e:
+        #raise ResourceNotFoundError(f"Data asset {ds_name} not found: {e}")
+    
+    #print(VERSION)
+
     my_data = Data(
         path=path,
         type=AssetTypes.URI_FILE,
-        description="This is the first version of the movements dataset - testing purpose",
-        name="movements_dataset_v1",
-        version=VERSION,
+        description="author: " + author,
+        name="movements_dataset_v",
+        #version=VERSION,
     )
     
-    ml_client.create_or_update_data(my_data)
+    ml_client.create_or_update(my_data)
 
 def get_connection_string(storage_account: str, resource_group: str):
     """ Get the connection string for an Azure Storage account using the Azure CLI.
@@ -187,7 +194,7 @@ def add_tags_to_blob(blob_client: BlobClient):
     except Exception as e:
         print(f"Error adding tags to blob '{blob_client.blob_name}': {e}") 
 
-def upload_files_to_blob(folder_path: str):
+def upload_files_to_blob(folder_path: str, author: str):
     """
     Uploads all files from a given local folder to a Blob container in Azure Storage.
     Checks if the file already exists before uploading.
@@ -220,8 +227,10 @@ def upload_files_to_blob(folder_path: str):
 
             # Add tags to the blob
             add_tags_to_blob(blob_client)
+    
+    versionize_data("movements", author)
 
 # List all blobs in the container
 #blobs = container_client.list_blobs()
 
-upload_files_to_blob("data")
+upload_files_to_blob("data", "Thang")
