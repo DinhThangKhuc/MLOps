@@ -17,10 +17,12 @@ import re
 
 # Load credentials from the .env file
 load_dotenv()
+
 subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
 resource_group = os.getenv("AZURE_RESOURCE_GROUP")
 workspace = os.getenv("AZURE_WORKSPACE")    
 storage_account = os.getenv("AZURE_STORAGE_ACCOUNT")
+connection_string = os.getenv("CONNECTION_STRING")
 
 if not subscription_id: 
     raise ValueError("No Azure subscription ID found.")
@@ -31,37 +33,19 @@ if not workspace:
 if not storage_account:
     raise ValueError("No Azure storage account found.")
 
-def versionize_data(ds_name: str, author: str):
+def versionize_data(author: str):
     ml_client = MLClient(
         DefaultAzureCredential(), subscription_id, resource_group, workspace
     )
-
-    # Set the path, supported paths include:
-    # local: './<path>/<file>' (this will be automatically uploaded to cloud storage)
-    # blob:  'wasbs://<container_name>@<account_name>.blob.core.windows.net/<path>/<file>'
-    # ADLS gen2: 'abfss://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file>'
-    # Datastore: 'azureml://datastores/<data_store_name>/paths/<path>/<file>'
     path = "https://mlopsgroup023113987413.blob.core.windows.net/movements"
-
-    #try:
-        #existing_data = ml_client.data.get(name=ds_name)
-        #current_version = existing_data.version
-        # Increment the version number
-        #VERSION = str(int(current_version) + 1)
-    #except Exception as e:
-        #raise ResourceNotFoundError(f"Data asset {ds_name} not found: {e}")
-    
-    #print(VERSION)
-
     my_data = Data(
         path=path,
-        type=AssetTypes.URI_FILE,
-        description="author: " + author,
-        name="movements_dataset_v",
-        #version=VERSION,
+        type=AssetTypes.URI_FOLDER,
+        description="Created or updated by" + author,
+        name="movements_test"
     )
     
-    ml_client.create_or_update(my_data)
+    ml_client.data.create_or_update(my_data)
 
 def get_connection_string(storage_account: str, resource_group: str):
     """ Get the connection string for an Azure Storage account using the Azure CLI.
@@ -202,7 +186,7 @@ def upload_files_to_blob(folder_path: str, author: str):
     Args:
         folder_path (str): Local folder path containing the files to upload.
     """
-    connection_string = get_connection_string(storage_account, resource_group)
+    #connection_string = get_connection_string(storage_account, resource_group)
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
     container_name = "movements"
     container_client = blob_service_client.get_container_client(container_name)
@@ -228,9 +212,5 @@ def upload_files_to_blob(folder_path: str, author: str):
             # Add tags to the blob
             add_tags_to_blob(blob_client)
     
-    versionize_data("movements", author)
+    versionize_data(author)
 
-# List all blobs in the container
-#blobs = container_client.list_blobs()
-
-upload_files_to_blob("data", "Thang")

@@ -35,3 +35,9 @@ YYYYMMDD_EID_Position_Name_DailyCount
 
 ## Device's Orientation
 ![Hand's orientation](assets/IMG_0712.PNG)
+
+## How to upload data on Azure
+- use the function upload_files_to_blob() in src/dbc.py to upload your data to azure blob storage automatically. This function checks and upload only new .txt files, which doesn't exist in the blob storage. it also creates a new version of the data asset "movements".`
+
+```upload_files_to_blob(path_to_the_data_folder, your_name)```
+- path_to_the_data_folder: your folder should only contains the .txt files. 
