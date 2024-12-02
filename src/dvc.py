@@ -6,16 +6,18 @@ from azure.ai.ml import MLClient
 from azure.ai.ml.entities import Data
 from azure.ai.ml.constants import AssetTypes
 from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient, BlobClient
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from azure.core.exceptions import ResourceNotFoundError
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
+from io import StringIO 
 
 import subprocess
 import json
 from dotenv import load_dotenv
 import os
 import re
+import pandas as pd
 
 def extract_data_from_filename(filename: str):
     """ Extract data from a filename using a regular expression pattern.
@@ -74,7 +76,7 @@ def extract_data_from_filename(filename: str):
     else:
         raise ValueError(f"Filename '{filename}' does not match expected format.")
 
-class AzureDataUploader(BaseEstimator, TransformerMixin):
+class MyAzureClient(BaseEstimator, TransformerMixin):
     def __init__(self):
         load_dotenv()
         self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
@@ -83,6 +85,7 @@ class AzureDataUploader(BaseEstimator, TransformerMixin):
         self.storage_account = os.getenv("AZURE_STORAGE_ACCOUNT")
         self.connection_string = os.getenv("CONNECTION_STRING")
         self.connection_string = self.get_connection_string(self.storage_account, self.resource_group)
+        self.shared_access_token = os.getenv("SHARED_ACCESS_TOKEN")
 
         if not self.subscription_id: 
             raise ValueError("No Azure subscription ID found.")
@@ -97,10 +100,6 @@ class AzureDataUploader(BaseEstimator, TransformerMixin):
             DefaultAzureCredential(), self.subscription_id, self.resource_group, self.workspace
         )
     
-    def fit(self, X, y=None):
-        # No fitting logic needed for data uploading
-        return self
-
     @staticmethod
     def get_connection_string(storage_account: str, resource_group: str):
         """ Get the connection string for an Azure Storage account using the Azure CLI.
@@ -141,6 +140,14 @@ class AzureDataUploader(BaseEstimator, TransformerMixin):
         except Exception as ex:
             print(f"An error occurred: {ex}")
             return None
+    
+    def fit(self, X, y=None):
+        # No fitting logic needed
+        return self
+
+class AzureDataUploader(MyAzureClient):
+    def __init__(self):
+        self.__init__()
 
     @staticmethod 
     def add_tags_to_blob(blob_client: BlobClient):
@@ -224,5 +231,29 @@ class AzureDataUploader(BaseEstimator, TransformerMixin):
 
         # Pass-through
         return X  
+
+class AzureDataLoader(MyAzureClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.container_client = ContainerClient.from_container_url(self.shared_access_token)
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        all_dfs = []
+        for blob in self.container_client.list_blobs():
+            print(f"Reading blob: {blob.name}")
+            # Create a BlobClient for each blob
+            blob_client = self.container_client.get_blob_client(blob.name)
+            
+            # Download the blob's content
+            blob_data = blob_client.download_blob()
+            # Assuming the blobs are CSV files
+            blob_content = blob_data.content_as_text()
+            df = pd.read_csv(StringIO(blob_content), sep='\t')
+            all_dfs.append(df)  # Store the DataFrame
+
+        return all_dfs
 
 
