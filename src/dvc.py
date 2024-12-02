@@ -83,8 +83,7 @@ class MyAzureClient(BaseEstimator, TransformerMixin):
         self.resource_group = os.getenv("AZURE_RESOURCE_GROUP")
         self.workspace = os.getenv("AZURE_WORKSPACE")    
         self.storage_account = os.getenv("AZURE_STORAGE_ACCOUNT")
-        self.connection_string = os.getenv("CONNECTION_STRING")
-        self.connection_string = self.get_connection_string(self.storage_account, self.resource_group)
+        self.connection_string = self.get_connection_string(self.storage_account, self.resource_group) if not os.getenv("CONNECTION_STRING") else os.getenv("CONNECTION_STRING") 
         self.shared_access_token = os.getenv("SHARED_ACCESS_TOKEN")
 
         if not self.subscription_id: 
@@ -140,14 +139,14 @@ class MyAzureClient(BaseEstimator, TransformerMixin):
         except Exception as ex:
             print(f"An error occurred: {ex}")
             return None
-    
+
     def fit(self, X, y=None):
         # No fitting logic needed
         return self
 
 class AzureDataUploader(MyAzureClient):
     def __init__(self):
-        self.__init__()
+        super().__init__()
 
     @staticmethod 
     def add_tags_to_blob(blob_client: BlobClient):
