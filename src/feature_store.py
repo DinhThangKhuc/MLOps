@@ -11,6 +11,7 @@ from utils import extract_data_from_filename
 
 
 class AzureFeatureSetUploader(MyAzureClient):
+
     def __init__(self):
         super().__init__()
 
