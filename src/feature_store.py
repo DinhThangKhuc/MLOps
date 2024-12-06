@@ -43,11 +43,7 @@ class AzureFeatureSetUploader(MyAzureClient):
                      "time",
                      "Temperature(°C)",
                      "Version()",
-                     "Battery level(%)",
-                     "Q0()",
-                     "Q1()",
-                     "Q2()",
-                     "Q3()"],
+                     "Battery level(%)"],
                      axis=1,
                      inplace=True)
 

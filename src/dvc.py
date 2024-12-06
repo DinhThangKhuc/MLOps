@@ -17,6 +17,11 @@ from utils import extract_data_from_filename
 
 
 class MyAzureClient(BaseEstimator, TransformerMixin):
+    """
+    Base class for Azure clients that provides common functionality such as 
+    loading environment variables and creating an MLClient instance.
+    """
+
     def __init__(self):
         load_dotenv()
         self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
@@ -90,6 +95,10 @@ class MyAzureClient(BaseEstimator, TransformerMixin):
 
 
 class AzureDataUploader(MyAzureClient):
+    """
+    Custom class that uploads files to an Azure Blob Storage container and adds tags to the blobs.
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -129,6 +138,10 @@ class AzureDataUploader(MyAzureClient):
             logger.error(f"Error adding tags to blob '{blob_client.blob_name}': {e}") 
 
     def versionize_data(self):
+        """
+        Versionize the data in the Azure Blob Storage container each time new data is uploaded.
+        """
+
         ml_client = MLClient(
             DefaultAzureCredential(), self.subscription_id, self.resource_group, self.workspace
         )
@@ -141,8 +154,14 @@ class AzureDataUploader(MyAzureClient):
         
         ml_client.data.create_or_update(my_data)
 
-    def transform(self, X):
-        # X is expected to be a file path or directory path on the local machine
+    def transform(self, X: str):
+        """
+        Main function to upload files to an Azure Blob Storage container and add tags to the blobs.
+
+        Args:
+            X: The input data, expected to be a directory path on the local machine.
+        """
+
         if not os.path.exists(X):
             raise FileNotFoundError(f"Path {X} does not exist on the local machine.")
 
@@ -156,7 +175,6 @@ class AzureDataUploader(MyAzureClient):
             if os.path.isdir(file_path) or not filename.endswith(".txt"):
                 continue
             
-            # Create a BlobClient for the specific file in the container
             blob_client = container_client.get_blob_client(filename)
 
             try:
@@ -173,11 +191,14 @@ class AzureDataUploader(MyAzureClient):
         
         self.versionize_data()
 
-        # Pass-through
         return X  
 
 
 class AzureDataLoader(MyAzureClient):
+    """
+    Custom class to load data from an Azure Blob Storage container.
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.container_client = ContainerClient.from_container_url(self.shared_access_token)
@@ -185,7 +206,15 @@ class AzureDataLoader(MyAzureClient):
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X):
+    def transform(self, X=None):
+        """
+        Load data from Azure Blob Storage and return a list of DataFrames.
+        Add extracted data from the file name as new columns to the DataFrames.
+
+        Returns:
+            all_dfs: A list of DataFrames containing the loaded data.
+        """
+
         all_dfs = []
         for blob in self.container_client.list_blobs():
             logger.info(f"Reading blob: {blob.name}")
@@ -194,8 +223,11 @@ class AzureDataLoader(MyAzureClient):
 
             # Download the blob's content
             blob_data = blob_client.download_blob()
+
             # Assuming the blobs are CSV files
             blob_content = blob_data.content_as_text()
+            blob_name = blob_client.blob_name
+
             df = pd.read_csv(StringIO(blob_content), sep='\t')
             all_dfs.append([df, blob.name])  # Store the DataFrame
 
