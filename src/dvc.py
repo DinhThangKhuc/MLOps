@@ -1,7 +1,5 @@
-####################################################################################################
-# 
-# This script contains functions to versionize data, upload files to an Azure Blob Storage container automatically 
-
+from logging_helper import logger
+import logging
 from azure.ai.ml import MLClient
 from azure.ai.ml.entities import Data
 from azure.ai.ml.constants import AssetTypes
@@ -9,72 +7,14 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from azure.core.exceptions import ResourceNotFoundError
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
 from io import StringIO 
-
 import subprocess
 import json
 from dotenv import load_dotenv
 import os
-import re
 import pandas as pd
+from utils import extract_data_from_filename
 
-def extract_data_from_filename(filename: str):
-    """ Extract data from a filename using a regular expression pattern.
-
-    The expected filename format is: 'YYYYMMDD_EID_POSITION_NAME_DAILYCOUNT.txt'
-
-    Returns: A dictionary containing the extracted data.
-        {"date": "YYYYMMDD", 
-        "exercise": "Exercise Name", 
-        "position": "Position Name", 
-        "name": "Name", 
-        "daily_count": "Daily Count"}
-    """
-    # Define mappings based on the provided information
-    exercise_mapping = {
-        0: "Walk",
-        1: "Squat",
-        2: "Sit-Ups",
-        3: "Bizeps Curl",
-        4: "Push-Up"
-    }
-    
-    position_mapping = {
-        0: "Pocket",
-        1: "Wrist"
-    }
-    
-    # Regular expression pattern to match the filename format
-    pattern = r"(\d{8})_(\d)_([01])_(\w+)_(\w+)\.txt"
-    
-    # Use regex to extract components from the filename
-    match = re.match(pattern, filename)
-    
-    if match:
-        # Extract the components from the matched groups
-        date = match.group(1)  # YYYYMMDD
-        eid = int(match.group(2))  # Exercise ID (integer)
-        position = int(match.group(3))  # Position (integer)
-        name = match.group(4)  # Name
-        daily_count = match.group(5)  # Daily Count
-        
-        # Map EID and Position to their full names using the provided dictionaries
-        exercise = exercise_mapping.get(eid, "Unknown")
-        position_name = position_mapping.get(position, "Unknown")
-        
-        # Create the resulting dictionary
-        data = {
-            "date": date,
-            "exercise": exercise,
-            "position": position_name,
-            "name": name,
-            "daily_count": daily_count
-        }
-        
-        return data
-    else:
-        raise ValueError(f"Filename '{filename}' does not match expected format.")
 
 class MyAzureClient(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -83,8 +23,12 @@ class MyAzureClient(BaseEstimator, TransformerMixin):
         self.resource_group = os.getenv("AZURE_RESOURCE_GROUP")
         self.workspace = os.getenv("AZURE_WORKSPACE")    
         self.storage_account = os.getenv("AZURE_STORAGE_ACCOUNT")
-        self.connection_string = self.get_connection_string(self.storage_account, self.resource_group) if not os.getenv("CONNECTION_STRING") else os.getenv("CONNECTION_STRING") 
+        self.storage_account_feature_store = os.getenv("AZURE_STORAGE_ACCOUNT_FEATURE_SET")
+        self.connection_string = self.get_connection_string(self.storage_account,
+                                                            self.resource_group) if not os.getenv("CONNECTION_STRING") else os.getenv("CONNECTION_STRING")
+        self.connection_string_feature_store = os.getenv("CONNECTION_STRING_FEATURE_SET")
         self.shared_access_token = os.getenv("SHARED_ACCESS_TOKEN")
+        self.shared_access_token_feature_store = os.getenv("SHARED_ACCESS_TOKEN_FEATURE_STORE")
 
         if not self.subscription_id: 
             raise ValueError("No Azure subscription ID found.")
@@ -130,25 +74,26 @@ class MyAzureClient(BaseEstimator, TransformerMixin):
                 raise ValueError("Could not retrieve the connection string.")
         
         except subprocess.CalledProcessError as e:
-            print(f"Error running 'az' command: {e.stderr}")
+            logger.error(f"Error running 'az' command: {e.stderr}")
             return None
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            print(f"Raw output: {result.stdout}")
+            logger.error(f"Error decoding JSON: {e}")
+            logger.error(f"Raw output: {result.stdout}")
             return None
         except Exception as ex:
-            print(f"An error occurred: {ex}")
+            logger.error(f"An error occurred: {ex}")
             return None
 
     def fit(self, X, y=None):
         # No fitting logic needed
         return self
 
+
 class AzureDataUploader(MyAzureClient):
     def __init__(self):
         super().__init__()
 
-    @staticmethod 
+    @staticmethod
     def add_tags_to_blob(blob_client: BlobClient):
         """
         Adds tags to a blob based on the information extracted from its name.
@@ -160,7 +105,7 @@ class AzureDataUploader(MyAzureClient):
         try:
             extracted_data = extract_data_from_filename(blob_client.blob_name)
         except ValueError as e:
-            print(f"Skipping blob '{blob_client.blob_name}' due to error: {e}")
+            logger.error(f"Skipping blob '{blob_client.blob_name}' due to error: {e}")
             return
 
         # Prepare tags based on extracted data
@@ -177,11 +122,11 @@ class AzureDataUploader(MyAzureClient):
 
         try:
             blob_client.set_blob_tags(tags)
-            print(f"Tags added to blob '{blob_client.blob_name}': {new_tags}")
+            logger.error(f"Tags added to blob '{blob_client.blob_name}': {new_tags}")
         except ResourceNotFoundError as e:
-            print(f"Blob '{blob_client.blob_name}' not found in the container.")
+            logger.error(f"Blob '{blob_client.blob_name}' not found in the container.")
         except Exception as e:
-            print(f"Error adding tags to blob '{blob_client.blob_name}': {e}") 
+            logger.error(f"Error adding tags to blob '{blob_client.blob_name}': {e}") 
 
     def versionize_data(self):
         ml_client = MLClient(
@@ -218,10 +163,10 @@ class AzureDataUploader(MyAzureClient):
                 # Check if the blob already exists by trying to fetch its properties
                 blob_client.get_blob_properties()
             except Exception as e:
-                print(f"Uploading file '{filename}' to container '{container_name}'...")
+                logger.error(f"Uploading file '{filename}' to container '{container_name}'...")
                 with open(file_path, "rb") as data:
                     blob_client.upload_blob(data)
-                print(f"File '{filename}' uploaded successfully.")
+                logger.error(f"File '{filename}' uploaded successfully.")
 
                 # Add tags to the blob
                 self.add_tags_to_blob(blob_client)
@@ -230,6 +175,7 @@ class AzureDataUploader(MyAzureClient):
 
         # Pass-through
         return X  
+
 
 class AzureDataLoader(MyAzureClient):
     def __init__(self) -> None:
@@ -242,16 +188,16 @@ class AzureDataLoader(MyAzureClient):
     def transform(self, X):
         all_dfs = []
         for blob in self.container_client.list_blobs():
-            print(f"Reading blob: {blob.name}")
+            logger.info(f"Reading blob: {blob.name}")
             # Create a BlobClient for each blob
             blob_client = self.container_client.get_blob_client(blob.name)
-            
+
             # Download the blob's content
             blob_data = blob_client.download_blob()
             # Assuming the blobs are CSV files
             blob_content = blob_data.content_as_text()
             df = pd.read_csv(StringIO(blob_content), sep='\t')
-            all_dfs.append(df)  # Store the DataFrame
+            all_dfs.append([df, blob.name])  # Store the DataFrame
 
         return all_dfs
 
